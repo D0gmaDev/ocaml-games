@@ -94,7 +94,7 @@ let mines_a_proximite tableau i j =
 	let listeVoisins = liste_voisins i j n in
 		let rec aux tableau liste = match liste with
 		| [] -> 0
-		| t::q -> if tableau.(fst t).(snd t) = 1 then 1+aux tableau q else aux tableau q
+		| t::q ->let autre = aux tableau q in if tableau.(fst t).(snd t) = 1 then 1+autre else autre;
 		in aux tableau listeVoisins;;
 
 
@@ -158,11 +158,26 @@ let retire_drapeau estRevele n i j =
 			fill_rect (j*cote+1) (i*cote+1) (cote-1) (cote-1);
 			estRevele.(i).(j) <- 0;;
 			
+let drapeaux_a_proximite tableau i j estRevele =
+	let listeVoisins = liste_voisins i j (Array.length estRevele) in
+		let rec aux listeVoisins estRevele = match listeVoisins with
+		| [] -> 0
+		| t::q -> let autre = aux q estRevele in if estRevele.(fst t).(snd t)=2 then 1+autre else autre
+		in aux listeVoisins estRevele;;
 
+let chord tableau i j estRevele  = 
+	let n = Array.length tableau in
+		let drapeaux = drapeaux_a_proximite tableau i j estRevele and mines = mines_a_proximite tableau i j in
+			if mines = drapeaux then
+				let listeVoisins = liste_voisins i j n in
+					let rec aux liste = match liste with
+					| [] -> ();
+					| t::q -> if tableau.(fst t).(snd t)=0 && estRevele.(i).(j) = 0 then 
+						reveler_mines tableau estRevele (fst t) (snd t);
+						aux q;
+					in aux listeVoisins;; 
 
-nouvelle_partie 15 50;;
-
-let nouvelle_partie n m difficulte scoreD scoreA scoreE =
+let nouvelle_partie n m difficulte =
 	clear_graph();
 	let largeurFenetre = size_x() and hauteurFenetre = size_y() in
 		let cote  = (min (largeurFenetre*4/5) (hauteurFenetre*4/5))/n in
@@ -177,7 +192,9 @@ let nouvelle_partie n m difficulte scoreD scoreA scoreE =
 			draw_string "%";
 			moveto (largeurFenetre*81/100) (hauteurFenetre*82/100);
 			draw_string "Score";
-			let tableauMines = placement_mines n m and estRevele = creation_est_revele n in
+			moveto (largeurFenetre*81/100) (hauteurFenetre*74/100);
+			draw_string "Temps";
+			let tableauMines = placement_mines n m and estRevele = creation_est_revele n and temps1 = Sys.time () in
 			let partieReussie = ref 0 in
 				while !partieReussie = 0 do
 					let attends =wait_next_event[Key_pressed] in
@@ -203,37 +220,54 @@ let nouvelle_partie n m difficulte scoreD scoreA scoreE =
 																then incr drapeaux;
 													done;
 												done;
-												end;
+											end;
 												if !reveles = n*n && drapeaux=nombreMines then partieReussie :=1
-												else if String.make 1 attends.key = "d" then
+								else 
+									begin
+										if String.make 1 attends.key = "j" then
+											print_int 0;
+									end;
+									begin 
+										if String.make 1 attends.key = "d" then
+											begin
 												if estRevele.(i).(j)=2 then
 												begin
-													retire_drapeau estRevele n i j
+													retire_drapeau estRevele n i j;
 												end
 												else 
-													if estRevele.(i).(j) = 0 then
-														place_drapeau estRevele n i j;
-												let score = ((!reveles-(!drapeaux))*3+((!drapeaux)*2))*(n/m*difficulte) in
-													set_color (rgb 255 255 255);
-													fill_rect (largeurFenetre*85/100) (hauteurFenetre*94/100) (largeurFenetre*8/100) (hauteurFenetre*4/100);
-													fill_rect (largeurFenetre*85/100) (hauteurFenetre*86/100) (largeurFenetre*8/100) (hauteurFenetre*4/100);
-													fill_rect (largeurFenetre*90/100) (hauteurFenetre*78/100) (largeurFenetre*10/100) (hauteurFenetre*4/100);
-													set_color 0;
-													moveto (largeurFenetre*90/100) (hauteurFenetre*94/100);
-													draw_string (string_of_int ((100*(!reveles))/(n*n)));
-													moveto (largeurFenetre*90/100) (hauteurFenetre*86/100);
-													draw_string (string_of_int ((!nombreMines)-(!drapeaux)));
-													moveto (largeurFenetre*90/100) (hauteurFenetre*78/100);
-													draw_string (string_of_int score);
-													if difficulte = 1 then
-														begin
-															scoreD := max (!scoreD) score;
-														end;
-													else if difficulte = 2 then
-															scoreA := max (!scoreA) score;
-													else
-															scoreE := max (!scoreE) score;
-														
+													begin
+														if estRevele.(i).(j) = 0 then
+															place_drapeau estRevele n i j;
+													end
+											end
+									end;
+								if estRevele.(i).(j) = 1 then chord tableau i j estRevele;
+								let score = ((!reveles-(!drapeaux))*3+((!drapeaux)*2))*n*difficulte/m in
+									set_color (rgb 255 255 255);
+									fill_rect (largeurFenetre*85/100) (hauteurFenetre*94/100) (largeurFenetre*8/100) (hauteurFenetre*4/100);
+									fill_rect (largeurFenetre*85/100) (hauteurFenetre*86/100) (largeurFenetre*8/100) (hauteurFenetre*4/100);
+									fill_rect (largeurFenetre*90/100) (hauteurFenetre*78/100) (largeurFenetre*10/100) (hauteurFenetre*4/100);
+									fill_rect (largeurFenetre*87/100) (hauteurFenetre *70/100) (largeurFenetre*8/100) (hauteurFenetre*4/100);
+									set_color 0;
+									moveto (largeurFenetre*90/100) (hauteurFenetre*94/100);
+									draw_string (string_of_int ((100*(!reveles))/(n*n)));
+									moveto (largeurFenetre*90/100) (hauteurFenetre*86/100);
+									draw_string (string_of_int ((!nombreMines)-(!drapeaux)));
+									moveto (largeurFenetre*90/100) (hauteurFenetre*78/100);
+									draw_string (string_of_int score);
+									let temps2 = Sys.time () in
+										let minutes = int_of_float ((temps2-.temps1)) in
+											let secondes = int_of_float ((temps2-.temps1))*60-60*minutes in
+												moveto (largeurFenetre*88/100) (hauteurFenetre*70/100);
+												draw_string (string_of_int (minutes/10));
+												moveto (largeurFenetre*89/100) (hauteurFenetre*70/100);
+												draw_string (string_of_int (minutes-10*(minutes/10)));
+												moveto (largeurFenetre*90/100) (hauteurFenetre*70/100);
+												draw_string ":";
+												moveto (largeurFenetre*91/100) (hauteurFenetre*70/100);
+												draw_string (string_of_int (secondes/10));
+												moveto (largeurFenetre*92/100) (hauteurFenetre*70/100);
+												draw_string (string_of_int (secondes-10*(secondes/10)));
 				done;
 				clear_graph ();
 				moveto (largeurFenetre*2/5) (hauteurFenetre*48/100);
@@ -250,7 +284,7 @@ let nouvelle_partie n m difficulte scoreD scoreA scoreE =
 				let enregistrement=wait_next_event[Key_pressed] in
 						if String.make 1 enregistrement.key = "m" then ecran_debut ();;
 
-let ecran_debut scoreD scoreA scoreE =
+let ecran_debut () =
 	open_graph "";
 	clear_graph();
 	let largeurFenetre = size_x() and hauteurFenetre = size_y() in
@@ -261,7 +295,7 @@ let ecran_debut scoreD scoreA scoreE =
 		lineto (largeurFenetre*2/5) (hauteurFenetre*11/20);
 		lineto (largeurFenetre*2/5) (hauteurFenetre*9/20);
 		moveto (largeurFenetre*41/100) (hauteurFenetre*48/100);
-		draw_string "Novuelle partie";
+		draw_string "Nouvelle partie";
 		moveto (largeurFenetre*2/5) (hauteurFenetre*9/10);
 		draw_string "Jeu du Démineur";
 		let enregistrement = wait_next_event[Button_up] in
@@ -295,9 +329,4 @@ let ecran_debut scoreD scoreA scoreE =
 						| _ -> ()
 						in aux (String.make 1 enregistrement.key);;
 					
-					
-					
-					
 ecran_debut ();;
-
-(* Il reste l'implémentation du "high score" *);;
